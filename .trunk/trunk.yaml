@@ -30,6 +30,7 @@ actions:
     - trunk-check-pre-push
     - trunk-fmt-pre-commit
     - trunk-upgrade-available
+    - yarn-check
 tools:
   enabled:
     - commitizen@4.3.1
