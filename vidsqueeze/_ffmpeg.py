@@ -135,6 +135,7 @@ async def _track_progress(process, input_file: str, duration: float, file_size: 
 
 async def _handle_process_completion(
     process,
+    input_file: str,
     output_file: str,
     stdout: bytes,
     stderr: bytes,
@@ -146,22 +147,26 @@ async def _handle_process_completion(
     elapsed_time = time.time() - start_time
     avg_speed = file_size / elapsed_time / 1024 / 1024  # MB/s
 
-    if verbose:
-        _console._print_status("Wrote", output_file)
+    # if verbose:
+    #     _console._print_status("Wrote", output_file)
 
-    if very_verbose:
-        data_volume_str = _units._format_data_volume(file_size)
-        time_str = _units._format_time(elapsed_time)
-        data_rate_str = _units._format_data_rate(avg_speed)
-        _console._print_status(
-            "Compressed",
-            f"{data_volume_str} in {time_str} at {data_rate_str}",
-        )
+    # if very_verbose:
+    #     data_volume_str = _units._format_data_volume(file_size)
+    #     time_str = _units._format_time(elapsed_time)
+    #     data_rate_str = _units._format_data_rate(avg_speed)
+    #     _console._print_status(
+    #         "Compressed",
+    #         f"{data_volume_str} in {time_str} at {data_rate_str}",
+    #     )
+
+    _clean_up_process(process)
 
     if process.returncode != 0:
-        _console.print_error("Encoding failed")
-        _console.print_error(f"FFmpeg error output:\n{stderr.decode()}")
-        sys.exit(1)
+        raise exceptions.FFmpegError(
+            f"Error processing file:  {input_file}",
+            f"Non-zero return code: {process.returncode}",
+            stderr.decode(),
+        )
 
 
 async def _run_ffmpeg_process(
@@ -173,27 +178,38 @@ async def _run_ffmpeg_process(
     verbose: bool,
     very_verbose: bool,
 ):
-    process = await asyncio.create_subprocess_exec(
-        *ffmpeg_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *ffmpeg_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-    start_time = time.time()
+        start_time = time.time()
 
-    await _track_progress(process, input_file, duration, file_size)
+        await _track_progress(process, input_file, duration, file_size)
 
-    stdout, stderr = await process.communicate()
-    await _handle_process_completion(
-        process,
-        output_file,
-        stdout,
-        stderr,
-        start_time,
-        file_size,
-        verbose,
-        very_verbose,
-    )
+        stdout, stderr = await process.communicate()
+        await _handle_process_completion(
+            process,
+            input_file,
+            output_file,
+            stdout,
+            stderr,
+            start_time,
+            file_size,
+            verbose,
+            very_verbose,
+        )
+    except Exception as e:
+        # Check if the process is still running and kill it
+        if process.returncode is None:  # Process is still running
+            process.kill()  # Forcefully kill the process
+        raise exceptions.FFmpegError(
+            f"Error processing file: {input_file}",
+            str(e),
+            stderr.decode(),
+        ) from e
 
 
 async def _compress_video(
@@ -207,8 +223,8 @@ async def _compress_video(
     verbose: bool,
     very_verbose: bool,
 ):
-    if verbose:
-        _console._print_status("Compressing", input_file)
+    # if verbose:
+    #     _console._print_status("Compressing", input_file)
 
     total_frames, duration, file_size = await _get_video_info_safe(input_file)
 
@@ -216,8 +232,8 @@ async def _compress_video(
         input_file, output_file, no_audio, resolution, fps, lossless, quality
     )
 
-    if very_verbose:
-        _console._print_status("FFmpeg command", " ".join(ffmpeg_cmd))
+    # if very_verbose:
+    #     _console._print_status("FFmpeg command", " ".join(ffmpeg_cmd))
 
     await _run_ffmpeg_process(
         ffmpeg_cmd, input_file, output_file, duration, file_size, verbose, very_verbose

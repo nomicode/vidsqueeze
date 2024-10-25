@@ -5,7 +5,7 @@ import pathlib
 from . import _ffmpeg, _pbar
 
 
-async def process_file(
+async def _run_ffmpeg(
     input_file,
     output_suffix,
     no_audio,
@@ -18,18 +18,25 @@ async def process_file(
 ):
     # Split the input file path into its base name and extension
     base, ext = pathlib.Path(input_file).stem, pathlib.Path(input_file).suffix
+    print(f"Processing file: {input_file}")
+    print(f"Base: {base}")
+    print(f"{output_suffix}")
+    print(f"Extension: {ext}")
     output_file = f"{base}{output_suffix}.{ext}"
-    await _ffmpeg._compress_video(
-        input_file,
-        output_file,
-        no_audio,
-        resolution,
-        fps,
-        lossless,
-        quality,
-        verbose,
-        very_verbose,
-    )
+    try:
+        await _ffmpeg._compress_video(
+            input_file,
+            output_file,
+            no_audio,
+            resolution,
+            fps,
+            lossless,
+            quality,
+            verbose,
+            very_verbose,
+        )
+    except Exception as e:
+        raise FFmpegError(f"Error processing file {input_file}: {str(e)}") from e
 
 
 async def compress_file(
@@ -46,7 +53,7 @@ async def compress_file(
 ):
     async with semaphore:
         try:
-            await process_file(
+            await _run_ffmpeg(
                 input_file,
                 output_suffix,
                 no_audio,

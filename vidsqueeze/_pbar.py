@@ -87,6 +87,7 @@ class MultiFileProgressBar:
                     unit_scale=True,
                     unit_divisor=1024,
                     position=len(self.file_pbars) + 1,
+                    leave=True,
                     bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
                 )
             return self.file_pbars[input_file]
