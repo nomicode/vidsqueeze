@@ -1,0 +1,17 @@
+{
+  "version": "0.2",
+  "language": "en-US",
+  "caseSensitive": false,
+  "allowCompoundWords": true,
+  "ignorePaths": [],
+  "dictionaryDefinitions": [
+    {
+      "name": "custom-dictionary",
+      "path": "./.cspell/custom-dictionary.txt"
+    }
+  ],
+  "dictionaries": [],
+  "words": [],
+  "ignoreWords": [],
+  "import": []
+}
