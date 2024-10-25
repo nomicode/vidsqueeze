@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "vidsqueeze"
+version = "0.1.0"
+description = ""
+authors = ["nomicode <23469+nomicode@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+click = "^8.1.7"
+ffmpeg-python = "^0.2.0"
+tqdm = "^4.66.5"
+pint = "^0.24.3"
+
+[tool.poetry.scripts]
+vidsqueeze = "vidsqueeze._cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
