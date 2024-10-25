@@ -1,70 +1,76 @@
 import asyncio
 import os
-import pathlib
+from typing import Dict, List, Optional
 
-from . import _ffmpeg, _pbar
+from . import _console, _ffmpeg, _validator
+from ._debug import DebugCategory, debug, log_call
+
+# Default maximum number of concurrent jobs
+MAX_JOBS = 8
 
 
-async def process_file(
-    input_file,
-    output_suffix,
-    no_audio,
-    resolution,
-    fps,
-    lossless,
-    quality,
-    verbose,
-    very_verbose,
-):
-    # Split the input file path into its base name and extension
-    base, ext = pathlib.Path(input_file).stem, pathlib.Path(input_file).suffix
-    output_file = f"{base}{output_suffix}.{ext}"
-    await _ffmpeg._compress_video(
-        input_file,
-        output_file,
-        no_audio,
-        resolution,
-        fps,
-        lossless,
-        quality,
-        verbose,
-        very_verbose,
+def calc_max_jobs() -> int:
+    """Calculate the maximum number of concurrent jobs based on CPU cores."""
+    try:
+        return os.cpu_count() or MAX_JOBS
+    except Exception:
+        return MAX_JOBS
+
+
+class VideoInfo:
+    def __init__(self, path: str, frames: int, duration: float, size: int):
+        self.path = path
+        self.frames = frames
+        self.duration = duration
+        self.size = size
+
+
+@log_call(DebugCategory.VALIDATION)
+async def validate_files(
+    input_files: List[str],
+    verbose: bool,
+) -> Dict[str, _validator.ValidationResult]:
+    """Phase 1: Validate all input files."""
+    debug.log(
+        DebugCategory.VALIDATION,
+        f"Starting validation phase with {len(input_files)} files",
     )
+    if verbose:
+        _console._print_status("Phase 1", "Validating input files")
+
+    results = await _validator.validate_files(input_files, verbose)
+
+    if verbose:
+        valid_count = sum(1 for r in results.values() if r.is_valid)
+        _console._print_status(
+            "Validation Complete", f"Found {valid_count} valid video files"
+        )
+
+    debug.log(DebugCategory.VALIDATION, "Validation phase complete")
+    return results
 
 
-async def compress_file(
-    semaphore,
-    input_file,
-    output_suffix,
-    no_audio,
-    resolution,
-    fps,
-    lossless,
-    quality,
-    verbose,
-    very_verbose,
-):
-    async with semaphore:
-        try:
-            await process_file(
-                input_file,
-                output_suffix,
-                no_audio,
-                resolution,
-                fps,
-                lossless,
-                quality,
-                verbose,
-                very_verbose,
-            )
-        except Exception as e:
-            print(f"Error processing file {input_file}: {str(e)}")
-
-
+@log_call(DebugCategory.CLI)
 def process_files(
-    input_files, no_audio, resolution, fps, lossless, quality, verbose, very_verbose
-):
-    suffix_parts = ["ffmpeg"]
+    input_files: List[str],
+    no_audio: bool,
+    resolution: Optional[str],
+    fps: Optional[str],
+    lossless: bool,
+    quality: Optional[int],
+    verbose: bool,
+    very_verbose: bool,
+    max_jobs: Optional[int] = None,
+) -> None:
+    """Process video files in three phases: validate, probe, and compress."""
+    debug.log(DebugCategory.CLI, "Starting file processing")
+
+    # Determine max jobs
+    actual_max_jobs = max_jobs or calc_max_jobs()
+    debug.log(DebugCategory.CLI, f"Using {actual_max_jobs} max jobs")
+
+    # Build output suffix
+    suffix_parts = ["-ffmpeg"]
     if no_audio:
         suffix_parts.append("-n")
     if resolution:
@@ -75,36 +81,40 @@ def process_files(
         suffix_parts.append("-lossless")
     if quality is not None:
         suffix_parts.append(f"-q{quality}")
-
     output_suffix = "".join(suffix_parts)
+    debug.log(DebugCategory.CLI, f"Using output suffix: {output_suffix}")
 
     async def main():
-        # Determine the number of CPU cores and use it to set the maximum number of concurrent tasks
-        max_workers = os.cpu_count() or 1
-        semaphore = asyncio.Semaphore(max_workers)
+        # Phase 1: Validate files
+        validation_results = await validate_files(input_files, verbose)
+        valid_files = [f for f, r in validation_results.items() if r.is_valid]
 
-        # Initialize the MultiFileProgressBar
-        total_size = sum(os.path.getsize(file) for file in input_files)
-        _pbar.init_multi_file_pbar(len(input_files), total_size)
+        if not valid_files:
+            debug.log(DebugCategory.CLI, "No valid video files found")
+            _console.print_error("No valid video files found")
+            return
 
-        tasks = [
-            compress_file(
-                semaphore,
-                input_file,
-                output_suffix,
-                no_audio,
-                resolution,
-                fps,
-                lossless,
-                quality,
-                verbose,
-                very_verbose,
-            )
-            for input_file in input_files
-        ]
-        await asyncio.gather(*tasks)
+        # Phase 2: Probe files
+        video_infos = await _ffmpeg.probe_files(valid_files, actual_max_jobs, verbose)
 
-        # Close the progress bar
-        _pbar.close_pbar()
+        if not video_infos:
+            debug.log(DebugCategory.CLI, "No files successfully probed")
+            _console.print_error("No files successfully probed")
+            return
 
+        # Phase 3: Compress files
+        await _ffmpeg.compress_files(
+            video_infos,
+            output_suffix,
+            actual_max_jobs,
+            no_audio,
+            resolution,
+            fps,
+            quality,
+            verbose,
+            very_verbose,
+        )
+
+    debug.log(DebugCategory.CLI, "Running main async process")
     asyncio.run(main())
+    debug.log(DebugCategory.CLI, "Processing complete")

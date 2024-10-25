@@ -1,8 +1,11 @@
+import sys
 from typing import List, Optional
 
 import click
 
-from . import runner
+from . import _console, _debug, runner
+
+debug = _debug.debug
 
 
 @click.command()
@@ -28,6 +31,14 @@ from . import runner
 )
 @click.option("-v", "--verbose", is_flag=True, help="Verbose mode")
 @click.option("-vv", "--very-verbose", is_flag=True, help="Very verbose mode")
+@click.option(
+    "-j",
+    "--jobs",
+    type=int,
+    default=runner.calc_max_jobs(),
+    show_default=True,
+    help="Maximum number of concurrent jobs",
+)
 @click.argument("input_files", nargs=-1, type=click.Path(exists=True))
 def main(
     input_files: List[str],
@@ -38,26 +49,50 @@ def main(
     quality: Optional[int],
     verbose: bool,
     very_verbose: bool,
+    jobs: int,
 ):
     """Compress video files"""
-    if not input_files:
-        click.echo("Error: No input files specified.", err=True)
-        return
-
-    if very_verbose:
-        # Implied verbose mode
-        verbose = True
-
-    runner.process_files(
-        input_files,
-        no_audio,
-        resolution,
-        fps,
-        lossless,
-        quality,
-        verbose,
-        very_verbose,
+    debug.log(_debug.DebugCategory.CLI, "CLI entry point")
+    debug.log(_debug.DebugCategory.CLI, f"Input files: {input_files}")
+    debug.log(
+        _debug.DebugCategory.CLI,
+        f"Options: no_audio={no_audio}, resolution={resolution}, fps={fps}",
     )
+    debug.log(
+        _debug.DebugCategory.CLI,
+        f"verbose={verbose}, very_verbose={very_verbose}, jobs={jobs}",
+    )
+
+    try:
+        if not input_files:
+            debug.log(_debug.DebugCategory.CLI, "No input files specified")
+            _console.print_error("No input files specified.")
+            sys.exit(1)
+
+        if very_verbose:
+            verbose = True
+
+        debug.log(_debug.DebugCategory.CLI, "Starting runner.process_files")
+        runner.process_files(
+            input_files,
+            no_audio,
+            resolution,
+            fps,
+            lossless,
+            quality,
+            verbose,
+            very_verbose,
+            max_jobs=jobs,
+        )
+        debug.log(_debug.DebugCategory.CLI, "Runner.process_files completed")
+
+    except Exception as e:
+        debug.log(_debug.DebugCategory.CLI, f"Fatal error in CLI: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        _console.print_error(f"Fatal error: {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

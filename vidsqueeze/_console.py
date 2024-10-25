@@ -1,17 +1,16 @@
 import sys
 
-import click
+
+def _print_status(action: str, message: str, verbose: bool = True):
+    """Print a status message to stderr."""
+    print(f"{action}: {message}", file=sys.stderr, flush=True)
 
 
-def _print_error(message):
-    click.echo(click.style(f"Error: {message}", fg="red"), err=True)
+def print_error(message: str):
+    """Print an error message to stderr."""
+    print(f"Error: {message}", file=sys.stderr, flush=True)
 
 
-def _print_status(msg, details=""):
-    out = click.style("==>", fg="blue") + " "
-    if details:
-        msg = f"{msg}:"
-    out += click.style(msg, bold=True)
-    if details:
-        out += f" {details}"
-    click.echo(out)
+def print_warning(message: str):
+    """Print a warning message to stderr."""
+    print(f"Warning: {message}", file=sys.stderr, flush=True)
