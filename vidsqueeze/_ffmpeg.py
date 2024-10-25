@@ -217,7 +217,7 @@ async def _compress_video(
     )
 
     if very_verbose:
-        _console._print_status("FFmpeg command", " ".join(ffmpeg_cmd), verbose=True)
+        _console._print_status("FFmpeg command", " ".join(ffmpeg_cmd))
 
     await _run_ffmpeg_process(
         ffmpeg_cmd, input_file, output_file, duration, file_size, verbose, very_verbose
