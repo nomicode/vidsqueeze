@@ -6,8 +6,8 @@
   "ignorePaths": [],
   "dictionaryDefinitions": [
     {
-      "name": "custom-dictionary",
-      "path": "./.cspell/custom-dictionary.txt"
+      "name": "workspace-dictionary",
+      "path": "./.cspell/custom-dictionary-workspace.txt"
     }
   ],
   "dictionaries": [],
