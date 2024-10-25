@@ -6,11 +6,14 @@
   "ignorePaths": [],
   "dictionaryDefinitions": [
     {
-      "name": "workspace-dictionary",
-      "path": "./.cspell/custom-dictionary-workspace.txt"
+      "name": "custom-dictionary",
+      "path": "./.cspell/custom-dictionary.txt",
+      "addWords": true
     }
   ],
-  "dictionaries": [],
+  "dictionaries": [
+    "custom-dictionary"
+  ],
   "words": [],
   "ignoreWords": [],
   "import": []
