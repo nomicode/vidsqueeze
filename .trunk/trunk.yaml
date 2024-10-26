@@ -17,6 +17,8 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
+    - vale@3.8.0
+    - sort-package-json@2.10.1
     - checkov@3.2.269
     - codespell@2.3.0
     - git-diff-check
